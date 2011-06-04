@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title></title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <script src="js/jquery.js"></script>
+    <script src="https://www.google.com/jsapi?key=ABQIAAAAy4cFZLyI0No34uP5W1U38RQr-wD05VCd8lPK5YMxO4AxIPb2mBSPU56QSBIiQo1x6J4J4baUY1O0Pg" type="text/javascript"></script>
+	<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+	<style type="text/css">
+	* {
+		margin: 0;
+		padding: 0;
+	}
+	
+	#mapContainer {
+		position: absolute;
+		z-index: 10;
+	}
+	
+	#overlayContainer {
+		position: absolute;
+		z-index: 50;
+		width: 100%;
+		height: 200px;
+		color: #FFFFFF;
+	}
+	
+	#background {
+		position: absolute;
+		z-index: 51;
+		opacity: 0.5;
+		width: inherit;
+		height: inherit;
+		background-color: #000000;
+	}
+	
+	#overlay {
+		position: absolute;
+		z-index: 52;
+	}
+	</style>
+
+<body>
+<div id="mapContainer"></div>
+<div id="overlayContainer">
+	<div id="background"></div>
+    <div id="overlay"></div>
+</div>
+<script type="text/javascript">
+var map;
+var mapContainer;
+var geocoder;
+var geoCodeObj;
+var browserUserAgent = navigator.userAgent;
+var website = "http://clients.josh-ho.com/startup";
+
+var fakeTrucks = new Array({ xPos:43.651137, yPos: -79.405575, text:"this is a truck" }, { xPos:43.64651, yPos: -79.398279, text:"this is a truck" }, { xPos: 43.646013, yPos: -79.403558, text:"this is a truck" }, { xPos:43.642597, yPos:-79.40918, text:"this is a truck" }, { xPos: 43.651448, yPos: -79.410338, text: "this is a truck" } );
+
+function success( position ) {
+	geoCodeObj = position;
+	displayMap( true );
+}
+
+function error() {
+	displayMap( false );
+}
+
+function displayMap( geoCodeBoolean ) {
+	var torLatLng;
+	if( geoCodeBoolean ) {
+		torLatLng = new google.maps.LatLng( geoCodeObj.coords.latitude, geoCodeObj.coords.longitude );
+	} else {
+		torLatLng = new google.maps.LatLng( 43.6533461,-79.3840405 ); //toronto's latitude and longitude
+	}
+	
+	var myOptions = {
+		zoom: 15,
+		center: torLatLng,
+		mapTypeControl: false,
+		navigationControlOptions: {style: google.maps.NavigationControlStyle.SMALL},
+		mapTypeId: google.maps.MapTypeId.ROADMAP
+	};
+	
+	geocoder = new google.maps.Geocoder();
+	infowindow = new google.maps.InfoWindow( { content: "loading..." } );
+	map = new google.maps.Map( mapContainer, myOptions );
+	
+	var markerHTML = "<div><h1>You Are Here</h1></div>";
+	
+	var marker = new google.maps.Marker({
+		position: torLatLng, 
+		map: map,
+		html: markerHTML,
+		title: "You are here",
+		/*icon: imageLoc*/
+	});
+	
+	google.maps.event.addListener( marker, "click", function () { 
+		//$('#overlay').html( this.html );
+		addMessageToScreen( this.html );
+	});
+	
+	addMarker();
+}
+
+function addMarker() {
+	var i;
+	for( i = 0; i < fakeTrucks.length; i++ ) {
+		var trucksLatLng = new google.maps.LatLng( fakeTrucks[i].xPos,fakeTrucks[i].yPos );
+		var message = "<div>" + fakeTrucks[i].text + "</div>"
+		
+		var marker = new google.maps.Marker({
+			position: trucksLatLng, 
+			map: map,
+			html: message,
+			title: fakeTrucks[i].text,
+			id: i,
+			icon: "test.png"
+		});
+		
+		google.maps.event.addListener( marker, "click", function () { 
+			console.log( this );
+			var location = this.position.Ia + "," + this.position.Ja;
+			geocoder.geocode( { 'address': location }, function(results, status) {
+				if ( status == google.maps.GeocoderStatus.OK ) {
+					//console.log( results );
+					var parseString = String( results[0].formatted_address );
+					parseString = parseString.split( " " ).join( "+" );
+					$.ajax( { 
+					url:"http://api.bitly.com/v3/shorten?login=echoblaze&apiKey=R_70615d1bf1edd9db9f73eeab1efb0549&longUrl=http://maps.google.ca/maps?f=q&source=s_q&hl=en&geocode=&q=" + encodeURIComponent( parseString ) + "&format=json&callback=jsonCallback",
+					dataType: 'json',
+					success: function jsonCallback( data ) {
+						console.log( data );
+					}
+					}).success( function() { console.log( "eee" );});
+					var overlayMessage = "A truck is located : " + String( results[0].formatted_address ) + "<a href='" + "?original_referer=" + encodeURIComponent( website ) + "&source=tweetbutton&text=Ice Cream Truck at '";
+					//console.log( overlayMessage );
+					addMessageToScreen( overlayMessage, location );
+				}
+			}
+			);
+		});
+	}
+}
+
+function jsonCallback( data ) {
+	console.log( "json callback: " + data );
+}
+
+function addMessageToScreen( message, geoLocation ) {
+	$('#overlay').html( message );
+}
+
+function resize() {
+	$('#overlayContainer').css( { 'top' : ( $(window).height() - 200 ) + 'px' } );
+}
+
+$( document ).ready(function(){
+	mapContainer = document.getElementById( 'mapContainer' );
+	mapContainer.style.width = '100%';
+	mapContainer.style.height = '100%';
+	if (navigator.geolocation) {
+		navigator.geolocation.getCurrentPosition(success, error);
+	}
+	$(window).resize(function() { resize(); } );
+	resize();
+});
+</script>
+</body>
+</html>
